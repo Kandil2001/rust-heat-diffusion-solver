@@ -1,52 +1,83 @@
 # Rust Heat Diffusion Solver
 
-A compact **Rust scientific-computing project** that implements a simple 2D heat-diffusion solver and exports numerical and visual results.
+A compact Rust implementation of a 2D steady heat-diffusion solver for scientific-computing practice and thermal simulation workflows.
 
-The project solves a simple 2D steady heat-diffusion problem with:
+The project models a simple thermal problem: a hot chip region is placed in the centre of a rectangular domain, while the outer boundaries are kept cold. The temperature field is computed iteratively and the solver writes both numerical data and visual output files.
 
-- cold outer boundaries,
-- a hot chip region in the middle,
-- iterative solution until convergence,
-- CSV output for numerical data,
-- SVG output images for quick visualisation.
+## Highlights
 
-The project is intentionally simple and readable. It focuses on the core workflow behind numerical simulation software: discretise the domain, iterate to convergence, save results, and visualise the solution.
+- Written in Rust with no external dependencies
+- 2D structured grid: `80 x 50` cells
+- Fixed-temperature cold boundaries: `300 K`
+- Fixed-temperature hot chip region: `360 K`
+- Jacobi-style iterative update
+- Residual-based convergence check
+- CSV export for numerical post-processing
+- SVG export for visualising the temperature field and convergence history
 
-## Repository name
+## Motivation
 
-Suggested GitHub repository name:
+This repository was built as a small scientific-computing project connecting Rust programming with heat transfer and numerical simulation. It is intentionally simple, readable, and easy to extend.
 
-```text
-rust-heat-diffusion-solver
-```
+The idea is inspired by earlier MATLAB-based thermal modelling work for microprocessor cooling, but the implementation here is kept compact so that the numerical workflow is clear: define the grid, apply boundary conditions, iterate to convergence, save the results, and visualise the solution.
 
-Suggested short GitHub description:
+## Numerical model
 
-```text
-Compact Rust implementation of a 2D heat-diffusion solver for scientific-computing practice and thermal simulation workflows.
-```
-
-Suggested topics:
+The solver uses a simple neighbour-averaging update for the steady 2D heat-diffusion problem. For each interior cell that is not part of the hot chip region, the temperature is updated from the four neighbouring cells:
 
 ```text
-rust, scientific-computing, heat-transfer, numerical-methods, finite-difference, finite-volume, thermal-management
+T_new(i,j) = 0.25 * [T(i+1,j) + T(i-1,j) + T(i,j+1) + T(i,j-1)]
 ```
 
-## Why I made this
+The iteration stops when the maximum temperature change per iteration drops below the specified tolerance.
 
-I built this project to practise Rust in a technical context close to my background in CFD, heat transfer, and numerical methods.  
-The problem is kept deliberately small so that the implementation stays understandable and can be extended later toward more advanced thermal or CFD cases.
+Current solver settings:
 
-## What the code does
+```text
+Grid size:                 80 x 50
+Cold boundary temperature: 300 K
+Hot chip temperature:      360 K
+Maximum iterations:        30000
+Convergence tolerance:     1.0e-6 K
+```
 
-The solver creates a 2D grid and iteratively computes the temperature field.
+## Results
 
-- Boundary temperature: 300 K
-- Hot chip temperature: 360 K
-- Solver: simple Jacobi iteration
-- Convergence criterion: maximum temperature change per iteration
+The current simulation converged in `3701` iterations with a final residual of `9.988248e-7 K`. The computed temperature range is `300 K` to `360 K`.
 
-After running, all results are saved in the `results/` folder.
+| Quantity | Value |
+|---|---:|
+| Grid | 80 x 50 |
+| Iterations completed | 3701 |
+| Final residual | 9.988248e-7 K |
+| Minimum temperature | 300.000 K |
+| Maximum temperature | 360.000 K |
+
+### Temperature field
+
+The hot chip region is visible in the centre, with heat diffusing toward the cold boundaries.
+
+![Temperature field](results/temperature.svg)
+
+### Convergence history
+
+The residual plot shows the decrease in the maximum temperature update during the iterative solution.
+
+![Residual history](results/residuals.svg)
+
+## Output files
+
+After a successful run, the program writes all results to the `results/` folder:
+
+```text
+results/temperature.csv
+results/residuals.csv
+results/summary.txt
+results/temperature.svg
+results/residuals.svg
+```
+
+The CSV files can be opened in Excel, Python, MATLAB, or any plotting tool. The SVG files can be opened directly in a browser and are displayed by GitHub.
 
 ## Project structure
 
@@ -58,30 +89,33 @@ rust-heat-diffusion-solver/
 ├── docs/
 │   └── method.md
 ├── results/
-│   └── .gitkeep
+│   ├── temperature.csv
+│   ├── residuals.csv
+│   ├── summary.txt
+│   ├── temperature.svg
+│   └── residuals.svg
 └── src/
     └── main.rs
 ```
 
-## Run in GitHub Codespaces
+## Run
 
-This is the easiest option because it avoids the Windows `link.exe` problem.
-
-1. Create a new GitHub repository.
-2. Upload the project files.
-3. Click **Code**.
-4. Open **Codespaces**.
-5. Create a new codespace.
-6. In the terminal, run:
+Clone the repository and run:
 
 ```bash
 cargo run --release
 ```
 
-The output will appear in:
+The program prints the convergence information in the terminal and updates the files in the `results/` folder.
 
-```text
-results/
+## Run in GitHub Codespaces
+
+GitHub Codespaces is a convenient way to run the project without setting up a full local Rust environment.
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+cargo run --release
 ```
 
 ## Run on Windows
@@ -94,42 +128,26 @@ cargo run --release
 
 If Rust reports that a linker is missing, install the Microsoft C++ Build Tools with the **Desktop development with C++** workload, then restart the terminal and run the command again.
 
-## Output files
+## Scope and limitations
 
-After a successful run, the program writes:
+This is not a full CFD solver. It is a compact numerical-methods project intended to demonstrate a clean Rust implementation of a simple thermal simulation workflow.
 
-```text
-results/temperature.csv
-results/residuals.csv
-results/summary.txt
-results/temperature.svg
-results/residuals.svg
-```
+Current simplifications:
 
-The `.csv` files can be opened in Excel.  
-The `.svg` files can be opened in a browser and are displayed directly by GitHub.
-
-## Example output
-
-The temperature image shows the hot chip region in the centre and the diffusion of heat toward the cold boundaries.
-
-```text
-results/temperature.svg
-```
-
-The residual image shows the solver convergence history.
-
-```text
-results/residuals.svg
-```
+- constant boundary temperatures,
+- fixed hot chip region,
+- no material-property variation,
+- no convection term,
+- no physical length scale or dimensional heat flux yet.
 
 ## Future improvements
 
 - Add grid-independence comparison.
-- Add a bottom heat-flux boundary condition.
 - Add material properties such as copper and aluminium.
-- Compare the output with the original MATLAB model.
-- Extend the solver to a convection-diffusion case.
+- Add a bottom heat-flux boundary condition.
+- Extend the model to convection-diffusion.
+- Compare selected cases against the earlier MATLAB implementation.
+- Add command-line parameters for grid size, temperatures, and tolerance.
 
 ## CV line
 
