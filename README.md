@@ -1,116 +1,127 @@
-# Rust Heat Diffusion Solver
+# 2D Heat Diffusion Solver in Rust
 
-A compact Rust implementation of a 2D steady heat-diffusion solver for scientific-computing practice and thermal simulation workflows.
+![Rust](https://img.shields.io/badge/language-Rust-orange.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen.svg)
 
-The project models a simple thermal problem: a hot chip region is placed in the centre of a rectangular domain, while the outer boundaries are kept cold. The temperature field is computed iteratively and the solver writes both numerical data and visual output files.
+A small, dependency-free Rust program for solving a steady two-dimensional heat-conduction problem on a structured grid.
 
-## Highlights
+The model places a hot rectangular chip at the centre of a colder domain. The temperature field is then updated iteratively until the solution converges. After the run, the program saves numerical data for further analysis and creates SVG plots that can be viewed directly on GitHub.
 
-- Written in Rust with no external dependencies
-- 2D structured grid: `80 x 50` cells
-- Fixed-temperature cold boundaries: `300 K`
-- Fixed-temperature hot chip region: `360 K`
-- Jacobi-style iterative update
-- Residual-based convergence check
-- CSV export for numerical post-processing
-- SVG export for visualising the temperature field and convergence history
+<p align="center">
+  <img src="results/temperature.svg" alt="Computed two-dimensional temperature field" width="720">
+</p>
 
-## Motivation
+## Why I built this
 
-This repository was built as a small scientific-computing project connecting Rust programming with heat transfer and numerical simulation. It is intentionally simple, readable, and easy to extend.
+This project grew from my interest in bringing numerical simulation workflows into Rust. I had previously worked on heat-transfer and CFD problems in MATLAB and wanted to rebuild a smaller problem in a language that offers strong performance, memory safety, and clear control over data structures.
 
-The idea is inspired by earlier MATLAB-based thermal modelling work for microprocessor cooling, but the implementation here is kept compact so that the numerical workflow is clear: define the grid, apply boundary conditions, iterate to convergence, save the results, and visualise the solution.
+The goal is not to compete with a full thermal or CFD package. Instead, the repository provides a compact and readable example of the complete scientific-computing workflow:
 
-## Numerical model
+1. define the computational grid,
+2. apply the thermal conditions,
+3. solve the discretised equation iteratively,
+4. monitor convergence,
+5. export and visualise the results.
 
-The solver uses a simple neighbour-averaging update for the steady 2D heat-diffusion problem. For each interior cell that is not part of the hot chip region, the temperature is updated from the four neighbouring cells:
+## Problem setup
+
+The computational domain uses an `80 × 50` Cartesian grid.
+
+- The outer boundaries are held at `300 K`.
+- A rectangular chip in the centre is held at `360 K`.
+- All remaining cells are updated until a steady temperature field is reached.
+
+The setup is intentionally simple so that the numerical method and implementation remain easy to follow.
+
+## Numerical method
+
+Away from the fixed-temperature boundaries and chip region, the steady heat equation is represented by the two-dimensional Laplace equation:
 
 ```text
-T_new(i,j) = 0.25 * [T(i+1,j) + T(i-1,j) + T(i,j+1) + T(i,j-1)]
+∂²T/∂x² + ∂²T/∂y² = 0
 ```
 
-The iteration stops when the maximum temperature change per iteration drops below the specified tolerance.
-
-Current solver settings:
+Using a uniform grid, each interior temperature is updated from its four direct neighbours:
 
 ```text
-Grid size:                 80 x 50
-Cold boundary temperature: 300 K
-Hot chip temperature:      360 K
-Maximum iterations:        30000
-Convergence tolerance:     1.0e-6 K
+T_new(i,j) = 0.25 × [T(i+1,j) + T(i-1,j) + T(i,j+1) + T(i,j-1)]
 ```
+
+The implementation uses a Jacobi-style iteration, meaning that every value in a new iteration is calculated from the previous temperature field.
+
+Convergence is monitored using the maximum absolute temperature change:
+
+```text
+residual = max |T_new - T_old|
+```
+
+The calculation stops when this residual falls below `1.0e-6 K` or when the maximum number of iterations is reached.
+
+More details are available in [`docs/method.md`](docs/method.md).
+
+## Current configuration
+
+| Parameter | Value |
+|---|---:|
+| Grid size | `80 × 50` |
+| Cold boundary temperature | `300 K` |
+| Hot chip temperature | `360 K` |
+| Maximum iterations | `30,000` |
+| Convergence tolerance | `1.0e-6 K` |
+| Iterative method | Jacobi |
+
+The configuration is currently defined as constants near the beginning of [`src/main.rs`](src/main.rs).
 
 ## Results
 
-The current simulation converged in `3701` iterations with a final residual of `9.988248e-7 K`. The computed temperature range is `300 K` to `360 K`.
+For the current setup, the solver converges in `3,701` iterations.
 
-| Quantity | Value |
+| Quantity | Result |
 |---|---:|
-| Grid | 80 x 50 |
-| Iterations completed | 3701 |
-| Final residual | 9.988248e-7 K |
-| Minimum temperature | 300.000 K |
-| Maximum temperature | 360.000 K |
+| Iterations completed | `3,701` |
+| Final residual | `9.988248e-7 K` |
+| Minimum temperature | `300.000 K` |
+| Maximum temperature | `360.000 K` |
 
-### Temperature field
-
-The hot chip region is visible in the centre, with heat diffusing toward the cold boundaries.
-
-![Temperature field](results/temperature.svg)
+The temperature field shows heat spreading from the central chip toward the cold outer boundaries.
 
 ### Convergence history
 
-The residual plot shows the decrease in the maximum temperature update during the iterative solution.
+<p align="center">
+  <img src="results/residuals.svg" alt="Residual convergence history" width="760">
+</p>
 
-![Residual history](results/residuals.svg)
+The residual decreases steadily until it reaches the specified convergence tolerance.
 
-## Output files
+## Getting started
 
-After a successful run, the program writes all results to the `results/` folder:
+### Prerequisite
 
-```text
-results/temperature.csv
-results/residuals.csv
-results/summary.txt
-results/temperature.svg
-results/residuals.svg
-```
+Install the Rust toolchain using [rustup](https://rustup.rs/) or your operating system's package manager.
 
-The CSV files can be opened in Excel, Python, MATLAB, or any plotting tool. The SVG files can be opened directly in a browser and are displayed by GitHub.
-
-## Project structure
-
-```text
-rust-heat-diffusion-solver/
-├── Cargo.toml
-├── README.md
-├── LICENSE
-├── docs/
-│   └── method.md
-├── results/
-│   ├── temperature.csv
-│   ├── residuals.csv
-│   ├── summary.txt
-│   ├── temperature.svg
-│   └── residuals.svg
-└── src/
-    └── main.rs
-```
-
-## Run
-
-Clone the repository and run:
+Confirm that Rust and Cargo are available:
 
 ```bash
+rustc --version
+cargo --version
+```
+
+### Clone and run
+
+```bash
+git clone https://github.com/Kandil2001/rust-heat-diffusion-solver.git
+cd rust-heat-diffusion-solver
 cargo run --release
 ```
 
-The program prints the convergence information in the terminal and updates the files in the `results/` folder.
+The release profile is recommended because it enables compiler optimisation.
 
-## Run in GitHub Codespaces
+After convergence, the program prints a summary in the terminal and writes the generated files to the `results/` directory.
 
-GitHub Codespaces is a convenient way to run the project without setting up a full local Rust environment.
+## Running in GitHub Codespaces
+
+Some default Codespaces images may not have the Rust toolchain available. When `cargo` is not found, install Rust inside the Codespace and run the solver:
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -118,38 +129,84 @@ source "$HOME/.cargo/env"
 cargo run --release
 ```
 
-## Run on Windows
+## Running on Windows
 
-After installing Rust with `rustup`, run:
+After installing Rust with rustup, open PowerShell in the repository and run:
 
 ```powershell
 cargo run --release
 ```
 
-If Rust reports that a linker is missing, install the Microsoft C++ Build Tools with the **Desktop development with C++** workload, then restart the terminal and run the command again.
+When Rust reports that a linker is missing, install the Microsoft C++ Build Tools with the **Desktop development with C++** workload, restart the terminal, and run the command again.
+
+## Generated files
+
+Each successful run creates or updates the following files:
+
+| File | Description |
+|---|---|
+| `results/temperature.csv` | Temperature value at every grid location |
+| `results/residuals.csv` | Residual recorded for every iteration |
+| `results/summary.txt` | Main solver settings and final results |
+| `results/temperature.svg` | Visualisation of the temperature field |
+| `results/residuals.svg` | Convergence-history plot |
+
+The CSV files can be opened in Python, MATLAB, Excel, or another post-processing tool. The SVG files require no plotting library and can be viewed directly in a browser.
+
+## Repository structure
+
+```text
+rust-heat-diffusion-solver/
+├── Cargo.toml
+├── LICENSE
+├── README.md
+├── docs/
+│   └── method.md
+├── results/
+│   ├── residuals.csv
+│   ├── residuals.svg
+│   ├── summary.txt
+│   ├── temperature.csv
+│   └── temperature.svg
+└── src/
+    └── main.rs
+```
+
+## Design choices
+
+- **No external crates:** the solver, CSV export, and SVG generation use only the Rust standard library.
+- **Flat temperature array:** the two-dimensional field is stored in a contiguous one-dimensional vector.
+- **Built-in visualisation:** results can be inspected without installing Python or a plotting package.
+- **Readable implementation:** the code favours clarity over advanced optimisation so that the numerical workflow remains visible.
 
 ## Scope and limitations
 
-This is not a full CFD solver. It is a compact numerical-methods project intended to demonstrate a clean Rust implementation of a simple thermal simulation workflow.
+This is a numerical-methods demonstration rather than a complete physical heat-transfer model. The current version assumes:
 
-Current simplifications:
+- a uniform grid,
+- fixed temperatures at the boundaries and chip,
+- no spatial variation in material properties,
+- no convection or radiation,
+- no physical dimensions or dimensional heat-flux calculation,
+- a purely steady-state problem.
 
-- constant boundary temperatures,
-- fixed hot chip region,
-- no material-property variation,
-- no convection term,
-- no physical length scale or dimensional heat flux yet.
+Because the model solves a simplified Laplace problem, it should not yet be used to predict the thermal performance of a real processor or cooling system.
 
-## Future improvements
+## Planned improvements
 
-- Add grid-independence comparison.
-- Add material properties such as copper and aluminium.
-- Add a bottom heat-flux boundary condition.
-- Extend the model to convection-diffusion.
-- Compare selected cases against the earlier MATLAB implementation.
-- Add command-line parameters for grid size, temperatures, and tolerance.
+- Accept grid size, temperatures, and tolerance as command-line arguments.
+- Add physical dimensions and thermal conductivity.
+- Support heat-flux and insulated boundary conditions.
+- Compare Jacobi, Gauss–Seidel, and successive over-relaxation methods.
+- Add grid-independence and performance studies.
+- Introduce parallel implementations for larger cases.
+- Compare selected cases with an earlier MATLAB model.
+- Add automated tests and continuous integration.
 
-## CV line
+## License
 
-**Rust Heat Diffusion Solver — Rust, Numerical Methods, Scientific Computing**  
-Implemented a compact 2D heat-diffusion solver in Rust with grid-based discretisation, iterative convergence monitoring, CSV export, and SVG visualisation of temperature and residual fields.
+This project is available under the [MIT License](LICENSE).
+
+## Author
+
+Developed by [Ahmed Kandil](https://github.com/Kandil2001) as part of an ongoing scientific-computing and numerical-simulation portfolio.
