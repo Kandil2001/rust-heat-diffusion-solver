@@ -3,10 +3,8 @@ use std::io::{BufWriter, Write};
 
 const NX: usize = 80;
 const NY: usize = 50;
-
 const COLD_TEMP: f64 = 300.0;
 const CHIP_TEMP: f64 = 360.0;
-
 const MAX_ITERATIONS: usize = 30_000;
 const TOLERANCE: f64 = 1.0e-6;
 
@@ -19,9 +17,7 @@ fn main() -> std::io::Result<()> {
     println!();
 
     let mut temperature = vec![COLD_TEMP; NX * NY];
-    let mut residuals: Vec<f64> = Vec::new();
-
-    apply_boundary_conditions(&mut temperature);
+    let mut residuals = Vec::new();
     apply_hot_chip(&mut temperature);
 
     let mut final_residual = 0.0;
@@ -29,7 +25,7 @@ fn main() -> std::io::Result<()> {
 
     for iteration in 1..=MAX_ITERATIONS {
         let old_temperature = temperature.clone();
-        let mut max_change = 0.0;
+        let mut max_change: f64 = 0.0;
 
         for j in 1..NY - 1 {
             for i in 1..NX - 1 {
@@ -44,16 +40,10 @@ fn main() -> std::io::Result<()> {
                         + old_temperature[index(i, j - 1)]);
 
                 let change = (new_value - old_temperature[index(i, j)]).abs();
-                if change > max_change {
-                    max_change = change;
-                }
-
+                max_change = max_change.max(change);
                 temperature[index(i, j)] = new_value;
             }
         }
-
-        apply_boundary_conditions(&mut temperature);
-        apply_hot_chip(&mut temperature);
 
         final_residual = max_change;
         iterations_done = iteration;
@@ -79,7 +69,6 @@ fn main() -> std::io::Result<()> {
     println!("Maximum temperature: {:.3} K", max_temp);
 
     create_dir_all("results")?;
-
     write_temperature_csv("results/temperature.csv", &temperature)?;
     write_residuals_csv("results/residuals.csv", &residuals)?;
     write_summary(
@@ -93,30 +82,13 @@ fn main() -> std::io::Result<()> {
     write_residuals_svg("results/residuals.svg", &residuals)?;
 
     println!();
-    println!("Output written to:");
-    println!("  results/temperature.csv");
-    println!("  results/residuals.csv");
-    println!("  results/summary.txt");
-    println!("  results/temperature.svg");
-    println!("  results/residuals.svg");
+    println!("Results saved in the results folder.");
 
     Ok(())
 }
 
 fn index(i: usize, j: usize) -> usize {
     j * NX + i
-}
-
-fn apply_boundary_conditions(temperature: &mut [f64]) {
-    for i in 0..NX {
-        temperature[index(i, 0)] = COLD_TEMP;
-        temperature[index(i, NY - 1)] = COLD_TEMP;
-    }
-
-    for j in 0..NY {
-        temperature[index(0, j)] = COLD_TEMP;
-        temperature[index(NX - 1, j)] = COLD_TEMP;
-    }
 }
 
 fn apply_hot_chip(temperature: &mut [f64]) {
@@ -135,7 +107,6 @@ fn is_inside_hot_chip(i: usize, j: usize) -> bool {
 
     let i_min = NX / 2 - chip_width / 2;
     let i_max = NX / 2 + chip_width / 2;
-
     let j_min = NY / 2 - chip_height / 2;
     let j_max = NY / 2 + chip_height / 2;
 
@@ -143,9 +114,7 @@ fn is_inside_hot_chip(i: usize, j: usize) -> bool {
 }
 
 fn write_temperature_csv(path: &str, temperature: &[f64]) -> std::io::Result<()> {
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
-
+    let mut writer = BufWriter::new(File::create(path)?);
     writeln!(writer, "i,j,temperature_K")?;
 
     for j in 0..NY {
@@ -158,9 +127,7 @@ fn write_temperature_csv(path: &str, temperature: &[f64]) -> std::io::Result<()>
 }
 
 fn write_residuals_csv(path: &str, residuals: &[f64]) -> std::io::Result<()> {
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
-
+    let mut writer = BufWriter::new(File::create(path)?);
     writeln!(writer, "iteration,residual_K")?;
 
     for (iteration, residual) in residuals.iter().enumerate() {
@@ -177,8 +144,7 @@ fn write_summary(
     min_temp: f64,
     max_temp: f64,
 ) -> std::io::Result<()> {
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
+    let mut writer = BufWriter::new(File::create(path)?);
 
     writeln!(writer, "Rust Heat Diffusion Solver")?;
     writeln!(writer, "==========================")?;
@@ -204,9 +170,7 @@ fn write_temperature_svg(
     let cell_size = 10usize;
     let width = NX * cell_size;
     let height = NY * cell_size;
-
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
+    let mut writer = BufWriter::new(File::create(path)?);
 
     writeln!(
         writer,
@@ -217,21 +181,21 @@ fn write_temperature_svg(
 
     for j in 0..NY {
         for i in 0..NX {
-            let t = temperature[index(i, j)];
+            let temperature_value = temperature[index(i, j)];
             let ratio = if max_temp > min_temp {
-                (t - min_temp) / (max_temp - min_temp)
+                (temperature_value - min_temp) / (max_temp - min_temp)
             } else {
                 0.0
             };
 
-            let (r, g, b) = temperature_colour(ratio);
+            let (red, green, blue) = temperature_colour(ratio);
             let x = i * cell_size;
             let y = (NY - 1 - j) * cell_size;
 
             writeln!(
                 writer,
                 r#"<rect x="{}" y="{}" width="{}" height="{}" fill="rgb({},{},{})"/>"#,
-                x, y, cell_size, cell_size, r, g, b
+                x, y, cell_size, cell_size, red, green, blue
             )?;
         }
     }
@@ -241,22 +205,21 @@ fn write_temperature_svg(
 }
 
 fn temperature_colour(ratio: f64) -> (u8, u8, u8) {
-    let clamped = ratio.clamp(0.0, 1.0);
+    let ratio = ratio.clamp(0.0, 1.0);
+    let red = (255.0 * ratio) as u8;
+    let green = (180.0 * (1.0 - (2.0 * ratio - 1.0).abs())) as u8;
+    let blue = (255.0 * (1.0 - ratio)) as u8;
 
-    let r = (255.0 * clamped) as u8;
-    let g = (180.0 * (1.0 - (2.0 * clamped - 1.0).abs())) as u8;
-    let b = (255.0 * (1.0 - clamped)) as u8;
-
-    (r, g, b)
+    (red, green, blue)
 }
 
 fn write_residuals_svg(path: &str, residuals: &[f64]) -> std::io::Result<()> {
     let width = 900.0;
     let height = 500.0;
     let margin = 60.0;
-
-    let file = File::create(path)?;
-    let mut writer = BufWriter::new(file);
+    let plot_width = width - 2.0 * margin;
+    let plot_height = height - 2.0 * margin;
+    let mut writer = BufWriter::new(File::create(path)?);
 
     writeln!(
         writer,
@@ -265,10 +228,6 @@ fn write_residuals_svg(path: &str, residuals: &[f64]) -> std::io::Result<()> {
     )?;
     writeln!(writer, r#"<title>Residual history</title>"#)?;
     writeln!(writer, r#"<rect width="100%" height="100%" fill="white"/>"#)?;
-
-    let plot_width = width - 2.0 * margin;
-    let plot_height = height - 2.0 * margin;
-
     writeln!(
         writer,
         r#"<rect x="{:.1}" y="{:.1}" width="{:.1}" height="{:.1}" fill="none" stroke="black" stroke-width="2"/>"#,
@@ -279,32 +238,30 @@ fn write_residuals_svg(path: &str, residuals: &[f64]) -> std::io::Result<()> {
         let min_log = residuals
             .iter()
             .copied()
-            .filter(|v| *v > 0.0)
-            .map(|v| v.log10())
+            .filter(|value| *value > 0.0)
+            .map(f64::log10)
             .fold(f64::INFINITY, f64::min);
 
         let max_log = residuals
             .iter()
             .copied()
-            .filter(|v| *v > 0.0)
-            .map(|v| v.log10())
+            .filter(|value| *value > 0.0)
+            .map(f64::log10)
             .fold(f64::NEG_INFINITY, f64::max);
 
         write!(writer, r#"<polyline fill="none" stroke="black" stroke-width="2" points=""#)?;
 
-        for (i, residual) in residuals.iter().enumerate() {
-            let x_ratio = i as f64 / (residuals.len() - 1) as f64;
-            let y_log = residual.max(1.0e-20).log10();
-
+        for (iteration, residual) in residuals.iter().enumerate() {
+            let x_ratio = iteration as f64 / (residuals.len() - 1) as f64;
+            let residual_log = residual.max(1.0e-20).log10();
             let y_ratio = if max_log > min_log {
-                (y_log - min_log) / (max_log - min_log)
+                (residual_log - min_log) / (max_log - min_log)
             } else {
                 0.0
             };
 
             let x = margin + x_ratio * plot_width;
             let y = margin + (1.0 - y_ratio) * plot_height;
-
             write!(writer, "{:.2},{:.2} ", x, y)?;
         }
 
