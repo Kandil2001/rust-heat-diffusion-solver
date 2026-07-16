@@ -2,7 +2,7 @@
 
 A simple steady-state heat conduction solver written in Rust using the cell-centred finite volume method.
 
-The model represents a rectangular plate heated from the west side. The west wall is fixed at `360 K`, while the east, north, and south walls are fixed at `300 K`. This gives a two-dimensional temperature field inside the plate.
+The model represents a square plate heated from the west side. The west wall is fixed at `400 K`, while the east, north, and south walls are fixed at `300 K`. This gives a clear two-dimensional temperature field inside the plate.
 
 <p align="center">
   <img src="results/temperature.svg" alt="Finite-volume temperature field" width="760">
@@ -11,8 +11,8 @@ The model represents a rectangular plate heated from the west side. The west wal
 ## Problem setup
 
 - Domain: `0.5 m × 0.5 m`
-- Grid: `80 × 50` control volumes
-- West wall temperature: `360 K`
+- Grid: `80 × 80` control volumes
+- West wall temperature: `400 K`
 - East wall temperature: `300 K`
 - North wall temperature: `300 K`
 - South wall temperature: `300 K`
