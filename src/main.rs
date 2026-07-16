@@ -2,13 +2,13 @@ use std::fs::{create_dir_all, File};
 use std::io::{BufWriter, Write};
 
 const NX: usize = 80;
-const NY: usize = 50;
+const NY: usize = 80;
 const LENGTH: f64 = 0.5;
 const HEIGHT: f64 = 0.5;
 const THICKNESS: f64 = 0.01;
 const CONDUCTIVITY: f64 = 1000.0;
 
-const HOT_WALL_TEMP: f64 = 360.0;
+const HOT_WALL_TEMP: f64 = 400.0;
 const COLD_WALL_TEMP: f64 = 300.0;
 const MAX_ITERATIONS: usize = 30_000;
 const TOLERANCE: f64 = 1.0e-6;
@@ -45,28 +45,24 @@ fn main() -> std::io::Result<()> {
                 let mut source = 0.0;
                 let mut source_coefficient = 0.0;
 
-                // Fixed temperature at the heated west wall.
                 if i == 0 {
                     source += 2.0 * a_w * HOT_WALL_TEMP;
                     source_coefficient -= 2.0 * a_w;
                     a_w = 0.0;
                 }
 
-                // Fixed temperature at the cold east wall.
                 if i == NX - 1 {
                     source += 2.0 * a_e * COLD_WALL_TEMP;
                     source_coefficient -= 2.0 * a_e;
                     a_e = 0.0;
                 }
 
-                // Fixed temperature at the cold south wall.
                 if j == 0 {
                     source += 2.0 * a_s * COLD_WALL_TEMP;
                     source_coefficient -= 2.0 * a_s;
                     a_s = 0.0;
                 }
 
-                // Fixed temperature at the cold north wall.
                 if j == NY - 1 {
                     source += 2.0 * a_n * COLD_WALL_TEMP;
                     source_coefficient -= 2.0 * a_n;
