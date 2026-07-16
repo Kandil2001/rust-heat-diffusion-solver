@@ -1,11 +1,12 @@
-2D Heat Conduction Solver in Rust
+2D Finite Volume Heat Conduction Solver in Rust
 Method: cell-centred finite volume method
 Grid: 80 x 50 control volumes
 Domain: 0.500 x 0.500 m
 West wall temperature: 360.000 K
 East wall temperature: 300.000 K
-North and south walls: insulated
-Iterations: 9548
-Final residual: 9.989248e-7 K
-Minimum temperature: 300.375 K
-Maximum temperature: 359.625 K
+North wall temperature: 300.000 K
+South wall temperature: 300.000 K
+Iterations: 4893
+Final residual: 9.995406e-7 K
+Minimum temperature: 300.004 K
+Maximum temperature: 359.244 K
