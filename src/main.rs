@@ -20,12 +20,12 @@ fn main() -> std::io::Result<()> {
     let mut temperature = vec![COLD_WALL_TEMP; NX * NY];
     let mut residuals = Vec::new();
 
-    println!("2D Heat Conduction Solver in Rust");
-    println!("Finite Volume Method");
+    println!("2D Finite Volume Heat Conduction Solver in Rust");
     println!("Grid: {} x {} control volumes", NX, NY);
     println!("West wall: {:.1} K", HOT_WALL_TEMP);
     println!("East wall: {:.1} K", COLD_WALL_TEMP);
-    println!("North and south walls: insulated\n");
+    println!("North wall: {:.1} K", COLD_WALL_TEMP);
+    println!("South wall: {:.1} K\n", COLD_WALL_TEMP);
 
     let mut iterations_done = 0;
     let mut final_residual = 0.0;
@@ -59,11 +59,17 @@ fn main() -> std::io::Result<()> {
                     a_e = 0.0;
                 }
 
-                // Zero heat flux at the insulated north and south walls.
+                // Fixed temperature at the cold south wall.
                 if j == 0 {
+                    source += 2.0 * a_s * COLD_WALL_TEMP;
+                    source_coefficient -= 2.0 * a_s;
                     a_s = 0.0;
                 }
+
+                // Fixed temperature at the cold north wall.
                 if j == NY - 1 {
+                    source += 2.0 * a_n * COLD_WALL_TEMP;
+                    source_coefficient -= 2.0 * a_n;
                     a_n = 0.0;
                 }
 
@@ -174,13 +180,14 @@ fn write_summary(
     max_temp: f64,
 ) -> std::io::Result<()> {
     let mut file = BufWriter::new(File::create(path)?);
-    writeln!(file, "2D Heat Conduction Solver in Rust")?;
+    writeln!(file, "2D Finite Volume Heat Conduction Solver in Rust")?;
     writeln!(file, "Method: cell-centred finite volume method")?;
     writeln!(file, "Grid: {} x {} control volumes", NX, NY)?;
     writeln!(file, "Domain: {:.3} x {:.3} m", LENGTH, HEIGHT)?;
     writeln!(file, "West wall temperature: {:.3} K", HOT_WALL_TEMP)?;
     writeln!(file, "East wall temperature: {:.3} K", COLD_WALL_TEMP)?;
-    writeln!(file, "North and south walls: insulated")?;
+    writeln!(file, "North wall temperature: {:.3} K", COLD_WALL_TEMP)?;
+    writeln!(file, "South wall temperature: {:.3} K", COLD_WALL_TEMP)?;
     writeln!(file, "Iterations: {}", iterations)?;
     writeln!(file, "Final residual: {:.6e} K", residual)?;
     writeln!(file, "Minimum temperature: {:.3} K", min_temp)?;
@@ -209,7 +216,11 @@ fn write_temperature_svg(
     for j in 0..NY {
         for i in 0..NX {
             let value = temperature[index(i, j)];
-            let ratio = (value - min_temp) / (max_temp - min_temp);
+            let ratio = if max_temp > min_temp {
+                (value - min_temp) / (max_temp - min_temp)
+            } else {
+                0.0
+            };
             let red = (255.0 * ratio) as u8;
             let blue = (255.0 * (1.0 - ratio)) as u8;
             let x = i * cell;
