@@ -1,51 +1,81 @@
 # 2D Finite Volume Heat Conduction Solver in Rust
 
-A simple steady-state heat conduction solver written in Rust using the cell-centred finite volume method.
-
-The model represents a square plate heated from the west side. The west wall is fixed at `400 K`, while the east, north, and south walls are fixed at `300 K`. This gives a clear two-dimensional temperature field inside the plate.
+A two-dimensional steady-state heat conduction solver written in Rust using the cell-centred Finite Volume Method (FVM). The project covers the main numerical workflow from spatial discretisation and boundary-condition treatment to iterative solution, convergence monitoring, and result visualisation.
 
 <p align="center">
-  <img src="results/temperature.svg" alt="Finite-volume temperature field" width="760">
+  <img src="results/temperature.svg" alt="Finite-volume temperature field" width="700">
 </p>
+
+## Features
+
+- Cell-centred Finite Volume Method
+- Structured Cartesian mesh
+- Steady-state two-dimensional heat conduction
+- Fixed-temperature boundary conditions
+- Gauss–Seidel iterative solution
+- Residual-based convergence monitoring
+- CSV export for post-processing
+- SVG temperature-field generation
+- No external numerical or plotting libraries
 
 ## Problem setup
 
-- Domain: `0.5 m × 0.5 m`
-- Grid: `80 × 80` control volumes
-- West wall temperature: `400 K`
-- East wall temperature: `300 K`
-- North wall temperature: `300 K`
-- South wall temperature: `300 K`
-- Thermal conductivity: `1000 W/(m K)`
-- Plate thickness: `0.01 m`
+The current case models heat conduction through a square plate. The west wall is heated, while the remaining three walls are maintained at a lower fixed temperature.
 
-This is one simple case based on the finite-volume heat-transfer models I worked with in MATLAB during my bachelor thesis.
+| Property | Value |
+|---|---:|
+| Domain | `0.5 m × 0.5 m` |
+| Grid | `80 × 80` control volumes |
+| West wall temperature | `400 K` |
+| East wall temperature | `300 K` |
+| North wall temperature | `300 K` |
+| South wall temperature | `300 K` |
+| Thermal conductivity | `1000 W/(m·K)` |
+| Plate thickness | `0.01 m` |
+| Convergence tolerance | `1.0e-6 K` |
+
+The difference between the heated wall and the three colder walls produces a fully two-dimensional temperature field inside the plate.
 
 ## Numerical method
 
-The steady heat conduction equation is integrated over each control volume:
+For steady heat conduction with constant thermal conductivity, the governing equation is
 
 ```text
 ∇ · (k∇T) = 0
 ```
 
-The discretised equation is written in the standard finite-volume form:
+The equation is integrated over each control volume and written in the standard finite-volume form
 
 ```text
 aP TP = aE TE + aW TW + aN TN + aS TS + Su
 ```
 
-The fixed wall temperatures are applied through finite-volume source terms. The equations are solved using a Gauss–Seidel iteration.
+The prescribed wall temperatures are introduced through finite-volume source terms. The resulting algebraic equations are solved using Gauss–Seidel iteration until the maximum temperature change between two consecutive iterations falls below the specified tolerance.
 
-The solver stops when the maximum temperature change between two iterations is below `1.0e-6 K`.
+## Repository structure
 
-## Run the solver
+```text
+.
+├── src/
+│   └── main.rs
+├── results/
+│   ├── temperature.csv
+│   ├── residuals.csv
+│   ├── summary.txt
+│   └── temperature.svg
+├── Cargo.toml
+├── Cargo.lock
+├── LICENSE
+└── README.md
+```
 
-Install Rust, clone the repository, and run:
+## Running the solver
+
+Clone the repository and run the release build:
 
 ```bash
-git clone https://github.com/Kandil2001/rust-heat-diffusion-solver.git
-cd rust-heat-diffusion-solver
+git clone https://github.com/Kandil2001/rust-fvm-heat-conduction.git
+cd rust-fvm-heat-conduction
 cargo run --release
 ```
 
@@ -57,30 +87,33 @@ source "$HOME/.cargo/env"
 cargo run --release
 ```
 
-## Output files
+## Generated output
 
-The solver writes the results to the `results/` folder:
+Each successful run updates the files inside the `results/` directory:
 
-- `temperature.csv` – temperature at each control-volume centre
-- `residuals.csv` – convergence history
-- `summary.txt` – case settings and final results
-- `temperature.svg` – temperature-field visualisation
+- `temperature.csv` — temperature at every control-volume centre
+- `residuals.csv` — convergence history
+- `summary.txt` — simulation setup and final solver values
+- `temperature.svg` — temperature-field visualisation displayed in this README
 
-The program uses only the Rust standard library.
+The CSV files can be opened in Python, MATLAB, Excel, or another post-processing tool.
 
-## Why I made this
+## Project scope
 
-I wanted to rebuild one of the simple finite-volume heat-transfer cases from my bachelor thesis in Rust. The aim was to keep the code clear and show the main numerical steps without using a large CFD library.
+The current implementation focuses on a clear and compact finite-volume treatment of a two-dimensional diffusion problem. It provides a direct view of the coefficient assembly, boundary source terms, iterative update, convergence check, and output generation without hiding the numerical steps behind an external CFD library.
 
-This is not a complete thermal model of a processor or cooling system. It is a small project for practising finite-volume discretisation and scientific programming in Rust.
+The solver is intentionally limited to one steady conduction case, but its structure can be extended to support more advanced heat-transfer and numerical studies.
 
-## Possible next steps
+## Future development
 
-- Add convection boundary conditions
-- Add heat-flux boundary conditions
-- Compare Gauss–Seidel with Jacobi and SOR
-- Add grid-independence and performance studies
-- Compare the Rust results with the earlier MATLAB model
+- Heat-flux and convection boundary conditions
+- Internal heat generation
+- Transient heat conduction
+- Non-uniform grids
+- Jacobi and Successive Over-Relaxation comparisons
+- Grid-independence and performance studies
+- Validation against an analytical or MATLAB reference solution
+- Parallel implementations for larger cases
 
 ## License
 
