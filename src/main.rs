@@ -3,51 +3,95 @@ use std::io::{BufWriter, Write};
 
 const NX: usize = 80;
 const NY: usize = 50;
-const COLD_TEMP: f64 = 300.0;
-const CHIP_TEMP: f64 = 360.0;
+const LENGTH: f64 = 0.5;
+const HEIGHT: f64 = 0.5;
+const THICKNESS: f64 = 0.01;
+const CONDUCTIVITY: f64 = 1000.0;
+
+const HOT_WALL_TEMP: f64 = 360.0;
+const COLD_WALL_TEMP: f64 = 300.0;
 const MAX_ITERATIONS: usize = 30_000;
 const TOLERANCE: f64 = 1.0e-6;
 
 fn main() -> std::io::Result<()> {
-    println!("Rust Heat Diffusion Solver");
-    println!("--------------------------");
-    println!("Grid: {} x {}", NX, NY);
-    println!("Cold boundary temperature: {:.1} K", COLD_TEMP);
-    println!("Hot chip temperature: {:.1} K", CHIP_TEMP);
-    println!();
+    let dx = LENGTH / NX as f64;
+    let dy = HEIGHT / NY as f64;
 
-    let mut temperature = vec![COLD_TEMP; NX * NY];
+    let mut temperature = vec![COLD_WALL_TEMP; NX * NY];
     let mut residuals = Vec::new();
-    apply_hot_chip(&mut temperature);
 
-    let mut final_residual = 0.0;
+    println!("2D Heat Conduction Solver in Rust");
+    println!("Finite Volume Method");
+    println!("Grid: {} x {} control volumes", NX, NY);
+    println!("West wall: {:.1} K", HOT_WALL_TEMP);
+    println!("East wall: {:.1} K", COLD_WALL_TEMP);
+    println!("North and south walls: insulated\n");
+
     let mut iterations_done = 0;
+    let mut final_residual = 0.0;
 
     for iteration in 1..=MAX_ITERATIONS {
-        let old_temperature = temperature.clone();
         let mut max_change: f64 = 0.0;
 
-        for j in 1..NY - 1 {
-            for i in 1..NX - 1 {
-                if is_inside_hot_chip(i, j) {
-                    continue;
+        for j in 0..NY {
+            for i in 0..NX {
+                let p = index(i, j);
+                let old_value = temperature[p];
+
+                let mut a_e = CONDUCTIVITY * dy * THICKNESS / dx;
+                let mut a_w = CONDUCTIVITY * dy * THICKNESS / dx;
+                let mut a_n = CONDUCTIVITY * dx * THICKNESS / dy;
+                let mut a_s = CONDUCTIVITY * dx * THICKNESS / dy;
+                let mut source = 0.0;
+                let mut source_coefficient = 0.0;
+
+                // Fixed temperature at the heated west wall.
+                if i == 0 {
+                    source += 2.0 * a_w * HOT_WALL_TEMP;
+                    source_coefficient -= 2.0 * a_w;
+                    a_w = 0.0;
                 }
 
-                let new_value = 0.25
-                    * (old_temperature[index(i + 1, j)]
-                        + old_temperature[index(i - 1, j)]
-                        + old_temperature[index(i, j + 1)]
-                        + old_temperature[index(i, j - 1)]);
+                // Fixed temperature at the cold east wall.
+                if i == NX - 1 {
+                    source += 2.0 * a_e * COLD_WALL_TEMP;
+                    source_coefficient -= 2.0 * a_e;
+                    a_e = 0.0;
+                }
 
-                let change = (new_value - old_temperature[index(i, j)]).abs();
-                max_change = max_change.max(change);
-                temperature[index(i, j)] = new_value;
+                // Zero heat flux at the insulated north and south walls.
+                if j == 0 {
+                    a_s = 0.0;
+                }
+                if j == NY - 1 {
+                    a_n = 0.0;
+                }
+
+                let a_p = a_e + a_w + a_n + a_s - source_coefficient;
+                let mut neighbour_sum = source;
+
+                if i + 1 < NX {
+                    neighbour_sum += a_e * temperature[index(i + 1, j)];
+                }
+                if i > 0 {
+                    neighbour_sum += a_w * temperature[index(i - 1, j)];
+                }
+                if j + 1 < NY {
+                    neighbour_sum += a_n * temperature[index(i, j + 1)];
+                }
+                if j > 0 {
+                    neighbour_sum += a_s * temperature[index(i, j - 1)];
+                }
+
+                let new_value = neighbour_sum / a_p;
+                max_change = max_change.max((new_value - old_value).abs());
+                temperature[p] = new_value;
             }
         }
 
-        final_residual = max_change;
-        iterations_done = iteration;
         residuals.push(max_change);
+        iterations_done = iteration;
+        final_residual = max_change;
 
         if iteration % 1000 == 0 {
             println!("Iteration {:>6}: residual = {:.6e} K", iteration, max_change);
@@ -61,15 +105,12 @@ fn main() -> std::io::Result<()> {
     let min_temp = temperature.iter().copied().fold(f64::INFINITY, f64::min);
     let max_temp = temperature.iter().copied().fold(f64::NEG_INFINITY, f64::max);
 
-    println!();
-    println!("Finished.");
-    println!("Iterations: {}", iterations_done);
+    println!("\nFinished after {} iterations", iterations_done);
     println!("Final residual: {:.6e} K", final_residual);
-    println!("Minimum temperature: {:.3} K", min_temp);
-    println!("Maximum temperature: {:.3} K", max_temp);
+    println!("Temperature range: {:.3} to {:.3} K", min_temp, max_temp);
 
     create_dir_all("results")?;
-    write_temperature_csv("results/temperature.csv", &temperature)?;
+    write_temperature_csv("results/temperature.csv", &temperature, dx, dy)?;
     write_residuals_csv("results/residuals.csv", &residuals)?;
     write_summary(
         "results/summary.txt",
@@ -79,11 +120,8 @@ fn main() -> std::io::Result<()> {
         max_temp,
     )?;
     write_temperature_svg("results/temperature.svg", &temperature, min_temp, max_temp)?;
-    write_residuals_svg("results/residuals.svg", &residuals)?;
 
-    println!();
-    println!("Results saved in the results folder.");
-
+    println!("\nResults written to the results folder.");
     Ok(())
 }
 
@@ -91,73 +129,62 @@ fn index(i: usize, j: usize) -> usize {
     j * NX + i
 }
 
-fn apply_hot_chip(temperature: &mut [f64]) {
-    for j in 0..NY {
-        for i in 0..NX {
-            if is_inside_hot_chip(i, j) {
-                temperature[index(i, j)] = CHIP_TEMP;
-            }
-        }
-    }
-}
-
-fn is_inside_hot_chip(i: usize, j: usize) -> bool {
-    let chip_width = NX / 5;
-    let chip_height = NY / 5;
-
-    let i_min = NX / 2 - chip_width / 2;
-    let i_max = NX / 2 + chip_width / 2;
-    let j_min = NY / 2 - chip_height / 2;
-    let j_max = NY / 2 + chip_height / 2;
-
-    i >= i_min && i <= i_max && j >= j_min && j <= j_max
-}
-
-fn write_temperature_csv(path: &str, temperature: &[f64]) -> std::io::Result<()> {
-    let mut writer = BufWriter::new(File::create(path)?);
-    writeln!(writer, "i,j,temperature_K")?;
+fn write_temperature_csv(
+    path: &str,
+    temperature: &[f64],
+    dx: f64,
+    dy: f64,
+) -> std::io::Result<()> {
+    let mut file = BufWriter::new(File::create(path)?);
+    writeln!(file, "i,j,x_m,y_m,temperature_K")?;
 
     for j in 0..NY {
         for i in 0..NX {
-            writeln!(writer, "{},{},{:.6}", i, j, temperature[index(i, j)])?;
+            let x = (i as f64 + 0.5) * dx;
+            let y = (j as f64 + 0.5) * dy;
+            writeln!(
+                file,
+                "{},{},{:.6},{:.6},{:.6}",
+                i,
+                j,
+                x,
+                y,
+                temperature[index(i, j)]
+            )?;
         }
     }
-
     Ok(())
 }
 
 fn write_residuals_csv(path: &str, residuals: &[f64]) -> std::io::Result<()> {
-    let mut writer = BufWriter::new(File::create(path)?);
-    writeln!(writer, "iteration,residual_K")?;
+    let mut file = BufWriter::new(File::create(path)?);
+    writeln!(file, "iteration,residual_K")?;
 
     for (iteration, residual) in residuals.iter().enumerate() {
-        writeln!(writer, "{},{:.10e}", iteration + 1, residual)?;
+        writeln!(file, "{},{:.10e}", iteration + 1, residual)?;
     }
-
     Ok(())
 }
 
 fn write_summary(
     path: &str,
     iterations: usize,
-    final_residual: f64,
+    residual: f64,
     min_temp: f64,
     max_temp: f64,
 ) -> std::io::Result<()> {
-    let mut writer = BufWriter::new(File::create(path)?);
-
-    writeln!(writer, "Rust Heat Diffusion Solver")?;
-    writeln!(writer, "==========================")?;
-    writeln!(writer, "Grid: {} x {}", NX, NY)?;
-    writeln!(writer, "Cold boundary temperature: {:.3} K", COLD_TEMP)?;
-    writeln!(writer, "Hot chip temperature: {:.3} K", CHIP_TEMP)?;
-    writeln!(writer, "Maximum iterations: {}", MAX_ITERATIONS)?;
-    writeln!(writer, "Tolerance: {:.3e} K", TOLERANCE)?;
-    writeln!(writer, "Iterations completed: {}", iterations)?;
-    writeln!(writer, "Final residual: {:.6e} K", final_residual)?;
-    writeln!(writer, "Minimum temperature: {:.3} K", min_temp)?;
-    writeln!(writer, "Maximum temperature: {:.3} K", max_temp)?;
-
+    let mut file = BufWriter::new(File::create(path)?);
+    writeln!(file, "2D Heat Conduction Solver in Rust")?;
+    writeln!(file, "Method: cell-centred finite volume method")?;
+    writeln!(file, "Grid: {} x {} control volumes", NX, NY)?;
+    writeln!(file, "Domain: {:.3} x {:.3} m", LENGTH, HEIGHT)?;
+    writeln!(file, "West wall temperature: {:.3} K", HOT_WALL_TEMP)?;
+    writeln!(file, "East wall temperature: {:.3} K", COLD_WALL_TEMP)?;
+    writeln!(file, "North and south walls: insulated")?;
+    writeln!(file, "Iterations: {}", iterations)?;
+    writeln!(file, "Final residual: {:.6e} K", residual)?;
+    writeln!(file, "Minimum temperature: {:.3} K", min_temp)?;
+    writeln!(file, "Maximum temperature: {:.3} K", max_temp)?;
     Ok(())
 }
 
@@ -167,125 +194,35 @@ fn write_temperature_svg(
     min_temp: f64,
     max_temp: f64,
 ) -> std::io::Result<()> {
-    let cell_size = 10usize;
-    let width = NX * cell_size;
-    let height = NY * cell_size;
-    let mut writer = BufWriter::new(File::create(path)?);
+    let cell = 10;
+    let width = NX * cell;
+    let height = NY * cell;
+    let mut file = BufWriter::new(File::create(path)?);
 
     writeln!(
-        writer,
+        file,
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="{}" height="{}" viewBox="0 0 {} {}">"#,
         width, height, width, height
     )?;
-    writeln!(writer, r#"<title>Temperature field</title>"#)?;
+    writeln!(file, "<title>Finite-volume temperature field</title>")?;
 
     for j in 0..NY {
         for i in 0..NX {
-            let temperature_value = temperature[index(i, j)];
-            let ratio = if max_temp > min_temp {
-                (temperature_value - min_temp) / (max_temp - min_temp)
-            } else {
-                0.0
-            };
-
-            let (red, green, blue) = temperature_colour(ratio);
-            let x = i * cell_size;
-            let y = (NY - 1 - j) * cell_size;
+            let value = temperature[index(i, j)];
+            let ratio = (value - min_temp) / (max_temp - min_temp);
+            let red = (255.0 * ratio) as u8;
+            let blue = (255.0 * (1.0 - ratio)) as u8;
+            let x = i * cell;
+            let y = (NY - 1 - j) * cell;
 
             writeln!(
-                writer,
-                r#"<rect x="{}" y="{}" width="{}" height="{}" fill="rgb({},{},{})"/>"#,
-                x, y, cell_size, cell_size, red, green, blue
+                file,
+                r#"<rect x="{}" y="{}" width="{}" height="{}" fill="rgb({},0,{})"/>"#,
+                x, y, cell, cell, red, blue
             )?;
         }
     }
 
-    writeln!(writer, "</svg>")?;
-    Ok(())
-}
-
-fn temperature_colour(ratio: f64) -> (u8, u8, u8) {
-    let ratio = ratio.clamp(0.0, 1.0);
-    let red = (255.0 * ratio) as u8;
-    let green = (180.0 * (1.0 - (2.0 * ratio - 1.0).abs())) as u8;
-    let blue = (255.0 * (1.0 - ratio)) as u8;
-
-    (red, green, blue)
-}
-
-fn write_residuals_svg(path: &str, residuals: &[f64]) -> std::io::Result<()> {
-    let width = 900.0;
-    let height = 500.0;
-    let margin = 60.0;
-    let plot_width = width - 2.0 * margin;
-    let plot_height = height - 2.0 * margin;
-    let mut writer = BufWriter::new(File::create(path)?);
-
-    writeln!(
-        writer,
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{:.0}" height="{:.0}" viewBox="0 0 {:.0} {:.0}">"#,
-        width, height, width, height
-    )?;
-    writeln!(writer, r#"<title>Residual history</title>"#)?;
-    writeln!(writer, r#"<rect width="100%" height="100%" fill="white"/>"#)?;
-    writeln!(
-        writer,
-        r#"<rect x="{:.1}" y="{:.1}" width="{:.1}" height="{:.1}" fill="none" stroke="black" stroke-width="2"/>"#,
-        margin, margin, plot_width, plot_height
-    )?;
-
-    if residuals.len() > 1 {
-        let min_log = residuals
-            .iter()
-            .copied()
-            .filter(|value| *value > 0.0)
-            .map(f64::log10)
-            .fold(f64::INFINITY, f64::min);
-
-        let max_log = residuals
-            .iter()
-            .copied()
-            .filter(|value| *value > 0.0)
-            .map(f64::log10)
-            .fold(f64::NEG_INFINITY, f64::max);
-
-        write!(writer, r#"<polyline fill="none" stroke="black" stroke-width="2" points=""#)?;
-
-        for (iteration, residual) in residuals.iter().enumerate() {
-            let x_ratio = iteration as f64 / (residuals.len() - 1) as f64;
-            let residual_log = residual.max(1.0e-20).log10();
-            let y_ratio = if max_log > min_log {
-                (residual_log - min_log) / (max_log - min_log)
-            } else {
-                0.0
-            };
-
-            let x = margin + x_ratio * plot_width;
-            let y = margin + (1.0 - y_ratio) * plot_height;
-            write!(writer, "{:.2},{:.2} ", x, y)?;
-        }
-
-        writeln!(writer, r#""/>"#)?;
-    }
-
-    writeln!(
-        writer,
-        r#"<text x="{:.1}" y="{:.1}" font-size="22" font-family="Arial">Residual history</text>"#,
-        margin, 35.0
-    )?;
-    writeln!(
-        writer,
-        r#"<text x="{:.1}" y="{:.1}" font-size="16" font-family="Arial">Iteration</text>"#,
-        width / 2.0 - 35.0,
-        height - 15.0
-    )?;
-    writeln!(
-        writer,
-        r#"<text x="15" y="{:.1}" font-size="16" font-family="Arial" transform="rotate(-90 15,{:.1})">log10 residual</text>"#,
-        height / 2.0 + 45.0,
-        height / 2.0 + 45.0
-    )?;
-
-    writeln!(writer, "</svg>")?;
+    writeln!(file, "</svg>")?;
     Ok(())
 }
