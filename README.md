@@ -4,10 +4,6 @@ A simple steady-state heat conduction solver written in Rust using the cell-cent
 
 The case represents a rectangular plate heated from the west side. The east side is kept cold, while the north and south sides are insulated. Heat therefore moves mainly from the hot wall toward the cold wall.
 
-<p align="center">
-  <img src="results/temperature.svg" alt="Temperature field" width="720">
-</p>
-
 ## Problem setup
 
 - Domain size: `0.5 m × 0.5 m`
