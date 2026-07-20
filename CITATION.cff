@@ -2,12 +2,14 @@ cff-version: 1.2.0
 message: "If you use this software in academic work, please cite it using this metadata."
 title: "2D Finite Volume Heat Conduction Solver in Rust"
 type: software
+version: "1.0.0"
+date-released: "2026-07-20"
 authors:
   - family-names: Kandil
     given-names: Ahmed
     orcid: "https://orcid.org/0009-0007-2724-4565"
 repository-code: "https://github.com/Kandil2001/Rust-FVM-Heat-Conduction"
-url: "https://kandil2001.github.io/"
+url: "https://kandil2001.github.io/projects/rust-fvm-heat-conduction.html"
 license: MIT
 keywords:
   - heat conduction
@@ -15,3 +17,4 @@ keywords:
   - Rust
   - numerical methods
   - scientific computing
+abstract: "A dependency-free Rust implementation of a two-dimensional steady heat-conduction solver using a cell-centered Finite Volume Method, Gauss-Seidel iteration, residual monitoring, CSV output, and SVG visualization."
